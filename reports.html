@@ -77,12 +77,19 @@
                     const data = await API.getReports();
                     
                     // 1. Today's Summary
-                    const summary = data.dailySummary;
+                    const summary = data.dailySummary || { 
+                        TOTAL_SALES: 0, 
+                        TRANSACTIONS: 0 
+                    };
+                    const avgSale = summary.TRANSACTIONS > 0 
+                            ? (summary.TOTAL_SALES / summary.TRANSACTIONS).toFixed(2)
+                        : 0;
+
                     document.getElementById('daily-summary').innerHTML = `
-                        <p>Total Sales: <strong>R ${summary.TOTAL_SALES.toFixed(2)}</strong></p>
-                        <p>Transactions: <strong>${summary.TRANSACTIONS}</strong></p>
-                        <p>Average Sale: <strong>R ${(summary.TOTAL_SALES / summary.TRANSACTIONS).toFixed(2)}</strong></p>
-                    `;
+                    <p>Total Sales: <strong>R ${summary.TOTAL_SALES.toFixed(2)}</strong></p>
+                    <p>Transactions: <strong>${summary.TRANSACTIONS}</strong></p>
+                    <p>Average Sale: <strong>R ${avgSale}</strong></p>
+`;
 
                     // 2. Top Products Table
                     const topProductsBody = document.querySelector('#top-products tbody');
