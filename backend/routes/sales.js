@@ -5,45 +5,40 @@ const router = express.Router();
 router.get('/reports', async (req, res) => {
   try {
     const [topProducts, deptSales, dailySummary] = await Promise.all([
-      // Top products with prices
       executeQuery(`
         SELECT 
-          p.ProductName, 
-          SUM(sd.QuantitySold) as total,
-          AVG(sd.PriceAtSale) as price
+          p.ProductName AS PRODUCTNAME, 
+          SUM(sd.QuantitySold) AS TOTAL,
+          AVG(sd.PriceAtSale) AS PRICE
         FROM SaleDetail sd
         JOIN Product p ON sd.ProductID = p.ProductID
         GROUP BY p.ProductName 
-        ORDER BY total DESC 
+        ORDER BY TOTAL DESC 
         FETCH FIRST 5 ROWS ONLY`
       ),
-      
-      // Department sales
       executeQuery(`
         SELECT 
-          pc.CategoryName AS Department,
-          SUM(sd.QuantitySold * sd.PriceAtSale) AS revenue
+          pc.CategoryName AS DEPARTMENT,
+          SUM(sd.QuantitySold * sd.PriceAtSale) AS REVENUE
         FROM SaleDetail sd
         JOIN Product p ON sd.ProductID = p.ProductID
         JOIN ProductCategory pc ON p.CategoryID = pc.CategoryID
         GROUP BY pc.CategoryName`
       ),
-      
-      // Daily summary
       executeQuery(`
-    SELECT 
-        NVL(COUNT(DISTINCT s.SaleID), 0) as transactions,
-        NVL(SUM(s.TotalAmount), 0) as total_sales
-    FROM Sale s
-    WHERE TRUNC(s.SaleDate) = TRUNC(SYSDATE)`
-)
+        SELECT 
+          NVL(COUNT(DISTINCT s.SaleID), 0) AS TRANSACTIONS,
+          NVL(SUM(s.TotalAmount), 0) AS TOTAL_SALES
+        FROM Sale s
+        WHERE TRUNC(s.SaleDate) = TRUNC(SYSDATE)`
+      )
     ]);
     
     res.json({ 
       success: true,
       topProducts,
       deptSales,
-      dailySummary: dailySummary[0] // Get first row
+      dailySummary: dailySummary[0]
     });
   } catch (err) {
     console.error('Report error:', err);
