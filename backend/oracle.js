@@ -1,33 +1,43 @@
 const oracledb = require('oracledb');
 require('dotenv').config();
 
-let connection;
+// Create a connection pool
+let pool;
 
 async function init() {
   try {
-    connection = await oracledb.getConnection({
+    pool = await oracledb.createPool({
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      connectString: process.env.DB_CONN_STRING
+      connectString: process.env.DB_CONN_STRING,
+      poolMin: 1,
+      poolMax: 5,
+      poolIncrement: 1,
+      poolAlias: 'default' // Explicitly set pool alias
     });
-    console.log('Connected to Oracle');
+    console.log('Oracle connection pool created');
   } catch (err) {
     console.error('Oracle connection error:', err);
-    throw err; // Fail fast if connection fails
+    throw err;
   }
 }
 
-async function executeQuery(sql, binds = [], options = {}) {
-  let conn;
+async function executeQuery(sql, binds = []) {
+  let connection;
   try {
-    conn = await oracledb.getConnection();
-    const result = await conn.execute(sql, binds, {
-      autoCommit: true, // Critical for SALES/SaleDetail inserts
-      ...options
+    connection = await oracledb.getConnection('default'); // Use the named pool
+    const result = await connection.execute(sql, binds, {
+      outFormat: oracledb.OUT_FORMAT_OBJECT
     });
-    return result;
+    return result.rows;
   } finally {
-    if (conn) await conn.close();
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (err) {
+        console.error('Error closing connection:', err);
+      }
+    }
   }
 }
 
