@@ -1,7 +1,9 @@
+// server.js
 const express = require('express');
 const cors = require('cors');
 const { init } = require('./oracle');
 const salesRouter = require('./routes/sales');
+const cashierRouter = require('./routes/cashiers');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,6 +14,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/sales', salesRouter);
+app.use('/api/cashiers', cashierRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
