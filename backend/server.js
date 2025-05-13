@@ -15,25 +15,19 @@ app.use('/api/sales', salesRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'active', db: 'Oracle', time: new Date() });
-});
-
-// Error handling
-app.use((err, req, res, next) => {
-    console.error('Server error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+  res.json({ 
+    status: 'active', 
+    db: 'Oracle', 
+    time: new Date().toISOString() 
+  });
 });
 
 // Initialize
 init().then(() => {
-    app.listen(PORT, () => {
-        console.log(`Mooi Mart POS backend running on http://localhost:${PORT}`);
-        console.log(`Available endpoints:`);
-        console.log(`- POST /api/sales`);
-        console.log(`- GET /api/sales/reports`);
-        console.log(`- GET /api/health`);
-    });
+  app.listen(PORT, () => {
+    console.log(`Mooi Mart POS backend running on http://localhost:${PORT}`);
+  });
 }).catch(err => {
-    console.error('Failed to start server:', err);
-    process.exit(1);
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
