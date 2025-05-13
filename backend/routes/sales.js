@@ -1,19 +1,24 @@
 const express = require('express');
 const { executeQuery } = require('../oracle');
-const router = express.Router(); // This line was missing
+const router = express.Router();
 
-// Reports endpoint
 router.get('/reports', async (req, res) => {
   try {
-    const [topProducts, deptSales] = await Promise.all([
+    const [topProducts, deptSales, dailySummary] = await Promise.all([
+      // Top products with prices
       executeQuery(`
-        SELECT p.ProductName, SUM(sd.QuantitySold) as total 
+        SELECT 
+          p.ProductName, 
+          SUM(sd.QuantitySold) as total,
+          AVG(sd.PriceAtSale) as price
         FROM SaleDetail sd
         JOIN Product p ON sd.ProductID = p.ProductID
         GROUP BY p.ProductName 
         ORDER BY total DESC 
         FETCH FIRST 5 ROWS ONLY`
       ),
+      
+      // Department sales
       executeQuery(`
         SELECT 
           pc.CategoryName AS Department,
@@ -22,13 +27,23 @@ router.get('/reports', async (req, res) => {
         JOIN Product p ON sd.ProductID = p.ProductID
         JOIN ProductCategory pc ON p.CategoryID = pc.CategoryID
         GROUP BY pc.CategoryName`
+      ),
+      
+      // Daily summary
+      executeQuery(`
+        SELECT 
+          COUNT(DISTINCT s.SaleID) as transactions,
+          SUM(s.TotalAmount) as total_sales
+        FROM Sale s
+        WHERE TRUNC(s.SaleDate) = TRUNC(SYSDATE)`
       )
     ]);
     
     res.json({ 
       success: true,
       topProducts,
-      deptSales
+      deptSales,
+      dailySummary: dailySummary[0] // Get first row
     });
   } catch (err) {
     console.error('Report error:', err);
@@ -39,4 +54,4 @@ router.get('/reports', async (req, res) => {
   }
 });
 
-module.exports = router; // Don't forget to export
+module.exports = router;
