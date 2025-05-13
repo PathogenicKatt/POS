@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const currentDateEl = document.getElementById('current-date');
     const categoryTabs = document.querySelectorAll('.category-tab');
     const paymentBtns = document.querySelectorAll('.payment-btn');
+    const cashierNameEl = document.getElementById('cashier-name');
+
     
     // Set current date
     currentDateEl.textContent = new Date().toLocaleDateString('en-ZA', {
@@ -27,6 +29,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load products
     const products = await API.getProducts();
     renderProducts(products);
+
+    
+    const cashier = await API.getCurrentCashier();
+    cashierNameEl.textContent = `${cashier.fullName} (${cashier.RegisterLocation})`;
     
     // Category tab click handler
     categoryTabs.forEach(tab => {
@@ -74,6 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             btn.addEventListener('click', addToCart);
         });
     }
+
     
     // Add to cart function
     function addToCart(e) {
