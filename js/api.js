@@ -4,22 +4,42 @@ const API = {
   getReports: async () => {
     try {
       const response = await fetch(`${API_BASE}/api/sales/reports`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+
       const data = await response.json();
-      if (!data.success) throw new Error(data.error || 'API request failed');
       
+      if (!data.success) {
+        throw new Error(data.error || 'Invalid report data');
+      }
+
+      // Format and validate data
       return {
-        topProducts: data.topProducts || [],
-        deptSales: data.deptSales || [],
-        dailySummary: data.dailySummary || { TRANSACTIONS: 0, TOTAL_SALES: 0 }
+        topProducts: data.topProducts?.map(p => ({
+          PRODUCTNAME: p.PRODUCTNAME || 'Unknown',
+          TOTAL: Number(p.TOTAL) || 0,
+          PRICE: Number(p.PRICE) || 0
+        })) || [],
+        
+        deptSales: data.deptSales?.map(d => ({
+          DEPARTMENT: d.DEPARTMENT || 'General',
+          REVENUE: Number(d.REVENUE) || 0
+        })) || [],
+        
+        dailySummary: {
+          TOTAL_SALES: Number(data.dailySummary?.TOTAL_SALES) || 0,
+          TRANSACTIONS: Number(data.dailySummary?.TRANSACTIONS) || 0
+        }
       };
+
     } catch (error) {
       console.error('API Error:', error);
       return {
         topProducts: [],
         deptSales: [],
-        dailySummary: { TRANSACTIONS: 0, TOTAL_SALES: 0 }
+        dailySummary: { TOTAL_SALES: 0, TRANSACTIONS: 0 }
       };
     }
   }
