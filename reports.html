@@ -17,6 +17,10 @@
         canvas {
             max-height: 400px;
         }
+        .summary-stats p {
+            margin: 8px 0;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -28,7 +32,9 @@
 
         <div class="report-card">
             <h2>Today's Summary</h2>
-            <div id="daily-summary" class="summary-stats"></div>
+            <div id="daily-summary" class="summary-stats">
+                <!-- Filled dynamically -->
+            </div>
         </div>
 
         <div class="report-card">
@@ -54,19 +60,31 @@
         <button id="refresh-btn" class="btn-primary">Refresh Data</button>
     </div>
 
-   <script src="js/api.js"></script> 
-    <script src="js/reports.js"></script>
+    <script src="js/api.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const refreshBtn = document.getElementById('refresh-btn');
-            const today = new Date().toLocaleDateString('en-ZA');
+            const today = new Date().toLocaleDateString('en-ZA', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
             document.getElementById('report-period').textContent = `Report for ${today}`;
 
             async function loadReports() {
                 try {
                     const data = await API.getReports();
                     
-                    // 1. Top Products Table
+                    // 1. Today's Summary
+                    const summary = data.dailySummary;
+                    document.getElementById('daily-summary').innerHTML = `
+                        <p>Total Sales: <strong>R ${summary.TOTAL_SALES.toFixed(2)}</strong></p>
+                        <p>Transactions: <strong>${summary.TRANSACTIONS}</strong></p>
+                        <p>Average Sale: <strong>R ${(summary.TOTAL_SALES / summary.TRANSACTIONS).toFixed(2)}</strong></p>
+                    `;
+
+                    // 2. Top Products Table
                     const topProductsBody = document.querySelector('#top-products tbody');
                     topProductsBody.innerHTML = data.topProducts.map(product => `
                         <tr>
@@ -76,7 +94,7 @@
                         </tr>
                     `).join('');
 
-                    // 2. Charts
+                    // 3. Charts
                     renderChart('topProductsChart', 'bar', {
                         labels: data.topProducts.map(p => p.PRODUCTNAME),
                         data: data.topProducts.map(p => p.TOTAL),
@@ -97,7 +115,11 @@
 
             function renderChart(canvasId, type, {labels, data, label}) {
                 const ctx = document.getElementById(canvasId).getContext('2d');
-                new Chart(ctx, {
+                if (window.activeCharts && window.activeCharts[canvasId]) {
+                    window.activeCharts[canvasId].destroy();
+                }
+                window.activeCharts = window.activeCharts || {};
+                window.activeCharts[canvasId] = new Chart(ctx, {
                     type: type,
                     data: {
                         labels: labels,
