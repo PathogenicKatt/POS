@@ -16,10 +16,21 @@
         }
         canvas {
             max-height: 400px;
+            margin-bottom: 20px;
+        }
+        .report-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
         }
         .summary-stats p {
             margin: 8px 0;
             font-size: 16px;
+        }
+        #no-data-alert {
+            color: #e74c3c;
+            font-weight: bold;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -32,9 +43,8 @@
 
         <div class="report-card">
             <h2>Today's Summary</h2>
-            <div id="daily-summary" class="summary-stats">
-                <!-- Filled dynamically -->
-            </div>
+            <div id="daily-summary" class="summary-stats"></div>
+            <div id="no-data-alert"></div>
         </div>
 
         <div class="report-card">
@@ -57,102 +67,126 @@
             <canvas id="deptSalesChart"></canvas>
         </div>
 
-        <button id="refresh-btn" class="btn-primary">Refresh Data</button>
+        <div class="report-actions">
+            <button id="back-to-pos" class="btn-secondary">Back to POS</button>
+            <button id="refresh-btn" class="btn-primary">Refresh Data</button>
+        </div>
     </div>
 
     <script src="js/api.js"></script>
     <script>
+        // Track active charts
+        window.activeCharts = {};
+        
         document.addEventListener('DOMContentLoaded', async () => {
-            const refreshBtn = document.getElementById('refresh-btn');
-            const today = new Date().toLocaleDateString('en-ZA', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
+            const today = new Date();
+            document.getElementById('report-period').textContent = 
+                `Report for ${today.toLocaleDateString('en-ZA', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                })}`;
+
+            // Navigation
+            document.getElementById('back-to-pos').addEventListener('click', () => {
+                window.location.href = 'index.html';
             });
-            document.getElementById('report-period').textContent = `Report for ${today}`;
 
-            async function loadReports() {
-                try {
-                    const data = await API.getReports();
-                    
-                    // 1. Today's Summary
-                    const summary = data.dailySummary || { 
-                        TOTAL_SALES: 0, 
-                        TRANSACTIONS: 0 
-                    };
-                    const avgSale = summary.TRANSACTIONS > 0 
-                            ? (summary.TOTAL_SALES / summary.TRANSACTIONS).toFixed(2)
-                        : 0;
+            // Initial load
+            await loadReports();
+            
+            // Refresh handler
+            document.getElementById('refresh-btn').addEventListener('click', loadReports);
+        });
 
-                    document.getElementById('daily-summary').innerHTML = `
-                    <p>Total Sales: <strong>R ${summary.TOTAL_SALES.toFixed(2)}</strong></p>
-                    <p>Transactions: <strong>${summary.TRANSACTIONS}</strong></p>
-                    <p>Average Sale: <strong>R ${avgSale}</strong></p>
-`;
-
-                    // 2. Top Products Table
-                    const topProductsBody = document.querySelector('#top-products tbody');
-                    topProductsBody.innerHTML = data.topProducts.map(product => `
-                        <tr>
-                            <td>${product.PRODUCTNAME}</td>
-                            <td>${product.TOTAL}</td>
-                            <td>R ${(product.TOTAL * product.PRICE).toFixed(2)}</td>
-                        </tr>
-                    `).join('');
-
-                    // 3. Charts
-                    renderChart('topProductsChart', 'bar', {
-                        labels: data.topProducts.map(p => p.PRODUCTNAME),
-                        data: data.topProducts.map(p => p.TOTAL),
-                        label: 'Units Sold'
-                    });
-
-                    renderChart('deptSalesChart', 'doughnut', {
-                        labels: data.deptSales.map(d => d.DEPARTMENT),
-                        data: data.deptSales.map(d => d.REVENUE),
-                        label: 'Revenue (ZAR)'
-                    });
-
-                } catch (err) {
-                    console.error('Failed to load reports:', err);
-                    alert('Error loading reports. Check console.');
+        async function loadReports() {
+            try {
+                const data = await API.getReports();
+                renderReports(data);
+                
+                // Show/hide no data message
+                const noDataEl = document.getElementById('no-data-alert');
+                if (data.dailySummary.TRANSACTIONS === 0) {
+                    noDataEl.textContent = "No sales recorded yet today";
+                } else {
+                    noDataEl.textContent = "";
                 }
+                
+            } catch (err) {
+                console.error('Failed to load reports:', err);
+                alert('Error loading reports. Check console for details.');
             }
+        }
 
-            function renderChart(canvasId, type, {labels, data, label}) {
-                const ctx = document.getElementById(canvasId).getContext('2d');
-                if (window.activeCharts && window.activeCharts[canvasId]) {
-                    window.activeCharts[canvasId].destroy();
-                }
-                window.activeCharts = window.activeCharts || {};
-                window.activeCharts[canvasId] = new Chart(ctx, {
-                    type: type,
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: label,
-                            data: data,
-                            backgroundColor: [
-                                '#3498db', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6'
-                            ],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                position: 'top'
-                            }
+        function renderReports(data) {
+            // 1. Today's Summary
+            const summary = data.dailySummary;
+            const avgSale = summary.TRANSACTIONS > 0 
+                ? (summary.TOTAL_SALES / summary.TRANSACTIONS).toFixed(2) 
+                : 0;
+            
+            document.getElementById('daily-summary').innerHTML = `
+                <p>Total Sales: <strong>R ${summary.TOTAL_SALES.toFixed(2)}</strong></p>
+                <p>Transactions: <strong>${summary.TRANSACTIONS}</strong></p>
+                <p>Average Sale: <strong>R ${avgSale}</strong></p>
+            `;
+
+            // 2. Top Products Table
+            const topProductsBody = document.querySelector('#top-products tbody');
+            topProductsBody.innerHTML = data.topProducts.map(product => `
+                <tr>
+                    <td>${product.PRODUCTNAME}</td>
+                    <td>${product.TOTAL}</td>
+                    <td>R ${(product.TOTAL * product.PRICE).toFixed(2)}</td>
+                </tr>
+            `).join('');
+
+            // 3. Charts
+            renderChart('topProductsChart', 'bar', {
+                labels: data.topProducts.map(p => p.PRODUCTNAME),
+                data: data.topProducts.map(p => p.TOTAL),
+                label: 'Units Sold'
+            });
+
+            renderChart('deptSalesChart', 'doughnut', {
+                labels: data.deptSales.map(d => d.DEPARTMENT),
+                data: data.deptSales.map(d => d.REVENUE),
+                label: 'Revenue (ZAR)'
+            });
+        }
+
+        function renderChart(canvasId, type, {labels, data, label}) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            
+            // Destroy previous chart if exists
+            if (window.activeCharts[canvasId]) {
+                window.activeCharts[canvasId].destroy();
+            }
+            
+            window.activeCharts[canvasId] = new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        backgroundColor: [
+                            '#3498db', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top'
                         }
                     }
-                });
-            }
-
-            refreshBtn.addEventListener('click', loadReports);
-            loadReports(); // Initial load
-        });
+                }
+            });
+        }
     </script>
 </body>
 </html>
