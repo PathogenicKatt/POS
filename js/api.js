@@ -44,7 +44,25 @@ const API = {
       console.error('Cashier API Error:', error);
       return { fullName: 'Unavailable', RegisterLocation: 'N/A' };
     }
+  },
+  createSale: async (saleData) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/sales`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(saleData)
+    });
+
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Sale API Error:', error);
+    return { success: false, error: error.message };
   }
+},
+
 };
 
 window.API = API;
