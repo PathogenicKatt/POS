@@ -5,7 +5,6 @@ const router = express.Router();
 
 router.get('/current', async (req, res) => {
   try {
-    // For simplicity, just return the latest cashier (simulate “on duty”)
     const result = await executeQuery(`
       SELECT e.FirstName || ' ' || e.LastName AS fullName,
              c.RegisterLocation
@@ -26,3 +25,4 @@ router.get('/current', async (req, res) => {
 });
 
 module.exports = router;
+
