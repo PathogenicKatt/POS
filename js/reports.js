@@ -1,16 +1,25 @@
-import { API } from './api.js';
-
+// frontend/js/reports.js
 document.addEventListener('DOMContentLoaded', async () => {
-    async function loadReports() {
+    const loadReports = async () => {
         try {
-            const data = await API.getReports();
+            if (!window.API) {
+                throw new Error('API is not loaded');
+            }
+            
+            const data = await window.API.getReports();
             console.log('Reports data:', data);
-            // Your existing report rendering code here
-        } catch (err) {
-            console.error('Failed to load reports:', err);
-            alert('Error loading reports. Check console.');
+            
+            // Render your reports here
+            document.getElementById('daily-summary').innerHTML = `
+                <p>Total Sales: R ${data.totalSales.toFixed(2)}</p>
+                <p>Total Transactions: ${data.transactionCount}</p>
+            `;
+            
+        } catch (error) {
+            console.error('Failed to load reports:', error);
+            alert('Error loading reports. See console for details.');
         }
-    }
+    };
 
     document.getElementById('refresh-btn')?.addEventListener('click', loadReports);
     loadReports();
