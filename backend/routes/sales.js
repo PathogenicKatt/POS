@@ -31,12 +31,12 @@ router.get('/reports', async (req, res) => {
       
       // Daily summary
       executeQuery(`
-        SELECT 
-          COUNT(DISTINCT s.SaleID) as transactions,
-          SUM(s.TotalAmount) as total_sales
-        FROM Sale s
-        WHERE TRUNC(s.SaleDate) = TRUNC(SYSDATE)`
-      )
+    SELECT 
+        NVL(COUNT(DISTINCT s.SaleID), 0) as transactions,
+        NVL(SUM(s.TotalAmount), 0) as total_sales
+    FROM Sale s
+    WHERE TRUNC(s.SaleDate) = TRUNC(SYSDATE)`
+)
     ]);
     
     res.json({ 
