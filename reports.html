@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mooi Mart - Sales Reports</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .report-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        canvas {
+            max-height: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Mooi Mart Sales Analytics</h1>
+            <div id="report-period"></div>
+        </header>
+
+        <div class="report-card">
+            <h2>Today's Summary</h2>
+            <div id="daily-summary" class="summary-stats"></div>
+        </div>
+
+        <div class="report-card">
+            <h2>Top Selling Products</h2>
+            <canvas id="topProductsChart"></canvas>
+            <table id="top-products">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Units Sold</th>
+                        <th>Revenue (ZAR)</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="report-card">
+            <h2>Sales by Department</h2>
+            <canvas id="deptSalesChart"></canvas>
+        </div>
+
+        <button id="refresh-btn" class="btn-primary">Refresh Data</button>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const refreshBtn = document.getElementById('refresh-btn');
+            const today = new Date().toLocaleDateString('en-ZA');
+            document.getElementById('report-period').textContent = `Report for ${today}`;
+
+            async function loadReports() {
+                try {
+                    const data = await API.getReports();
+                    
+                    // 1. Top Products Table
+                    const topProductsBody = document.querySelector('#top-products tbody');
+                    topProductsBody.innerHTML = data.topProducts.map(product => `
+                        <tr>
+                            <td>${product.PRODUCTNAME}</td>
+                            <td>${product.TOTAL}</td>
+                            <td>R ${(product.TOTAL * product.PRICE).toFixed(2)}</td>
+                        </tr>
+                    `).join('');
+
+                    // 2. Charts
+                    renderChart('topProductsChart', 'bar', {
+                        labels: data.topProducts.map(p => p.PRODUCTNAME),
+                        data: data.topProducts.map(p => p.TOTAL),
+                        label: 'Units Sold'
+                    });
+
+                    renderChart('deptSalesChart', 'doughnut', {
+                        labels: data.deptSales.map(d => d.DEPARTMENT),
+                        data: data.deptSales.map(d => d.REVENUE),
+                        label: 'Revenue (ZAR)'
+                    });
+
+                } catch (err) {
+                    console.error('Failed to load reports:', err);
+                    alert('Error loading reports. Check console.');
+                }
+            }
+
+            function renderChart(canvasId, type, {labels, data, label}) {
+                const ctx = document.getElementById(canvasId).getContext('2d');
+                new Chart(ctx, {
+                    type: type,
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: label,
+                            data: data,
+                            backgroundColor: [
+                                '#3498db', '#2ecc71', '#f1c40f', '#e74c3c', '#9b59b6'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top'
+                            }
+                        }
+                    }
+                });
+            }
+
+            refreshBtn.addEventListener('click', loadReports);
+            loadReports(); // Initial load
+        });
+    </script>
+</body>
+</html>
