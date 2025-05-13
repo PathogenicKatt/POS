@@ -91,5 +91,19 @@ router.post('/', async (req, res) => {
   }
 });
 
+router.get('/products', async (req, res) => {
+  try {
+    const products = await require('../oracle').executeQuery(`
+      SELECT ProductID AS id, ProductName AS name, Price, Quantity, CategoryID AS category
+      FROM Product
+    `);
+
+    res.json({ success: true, products });
+  } catch (err) {
+    console.error('Error fetching products:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch products' });
+  }
+});
+
 module.exports = router;
 
