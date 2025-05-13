@@ -262,6 +262,19 @@ header {
 .btn-secondary:hover {
   background: #2980b9;
 }
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
 
 #no-data-alert {
   color: #e74c3c;
