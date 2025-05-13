@@ -1,10 +1,7 @@
-const express = require('express');
-const { executeQuery } = require('../oracle');
-const router = express.Router();
-
 router.get('/reports', async (req, res) => {
   try {
     const [topProducts, deptSales] = await Promise.all([
+      // Top products query (unchanged)
       executeQuery(`
         SELECT p.ProductName, SUM(sd.QuantitySold) as total 
         FROM SaleDetail sd
@@ -13,20 +10,23 @@ router.get('/reports', async (req, res) => {
         ORDER BY total DESC 
         FETCH FIRST 5 ROWS ONLY`
       ),
+      
+      // Department sales (updated)
       executeQuery(`
-        SELECT d.Department, SUM(s.TotalAmount) as revenue
-        FROM Sale s
-        JOIN Employee e ON s.EmployeeID = e.EmployeeID
-        JOIN Department d ON e.DepartmentID = d.DepartmentID
-        GROUP BY d.Department`
+        SELECT 
+          pc.CategoryName AS Department,
+          SUM(sd.QuantitySold * sd.PriceAtSale) AS revenue
+        FROM SaleDetail sd
+        JOIN Product p ON sd.ProductID = p.ProductID
+        JOIN ProductCategory pc ON p.CategoryID = pc.CategoryID
+        GROUP BY pc.CategoryName`
       )
     ]);
     
     res.json({ 
       success: true,
       topProducts,
-      deptSales,
-      timestamp: new Date().toISOString()
+      deptSales
     });
   } catch (err) {
     console.error('Report error:', err);
@@ -36,5 +36,3 @@ router.get('/reports', async (req, res) => {
     });
   }
 });
-
-module.exports = router;
