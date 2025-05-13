@@ -250,14 +250,16 @@ header {
     background: #d0d0d0;
 }
 
-.demo-notice {
-    background: #fff3cd;
-    padding: 10px;
-    border-left: 4px solid #ffc107;
-    margin-top: 20px;
-    font-size: 14px;
+.reports-link {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  color: white;
+  text-decoration: none;
+  background: #3498db;
+  padding: 5px 10px;
+  border-radius: 4px;
 }
-
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .main-content {
