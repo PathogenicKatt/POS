@@ -1,9 +1,3 @@
-try {
-  oracledb.initOracleClient({ libDir: 'C:\\oracle\\instantclient_19_21' });
-} catch (err) {
-  console.error('Oracle client init error:', err);
-}
-
 const oracledb = require('oracledb');
 require('dotenv').config();
 
@@ -19,16 +13,21 @@ async function init() {
     console.log('Connected to Oracle');
   } catch (err) {
     console.error('Oracle connection error:', err);
+    throw err; // Fail fast if connection fails
   }
 }
 
-async function executeQuery(sql, binds = []) {
+async function executeQuery(sql, binds = [], options = {}) {
+  let conn;
   try {
-    const result = await connection.execute(sql, binds);
-    return result.rows;
-  } catch (err) {
-    console.error('Query error:', err);
-    throw err;
+    conn = await oracledb.getConnection();
+    const result = await conn.execute(sql, binds, {
+      autoCommit: true, // Critical for SALES/SaleDetail inserts
+      ...options
+    });
+    return result;
+  } finally {
+    if (conn) await conn.close();
   }
 }
 
