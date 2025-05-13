@@ -1,7 +1,11 @@
+const express = require('express');
+const { executeQuery } = require('../oracle');
+const router = express.Router(); // This line was missing
+
+// Reports endpoint
 router.get('/reports', async (req, res) => {
   try {
     const [topProducts, deptSales] = await Promise.all([
-      // Top products query (unchanged)
       executeQuery(`
         SELECT p.ProductName, SUM(sd.QuantitySold) as total 
         FROM SaleDetail sd
@@ -10,8 +14,6 @@ router.get('/reports', async (req, res) => {
         ORDER BY total DESC 
         FETCH FIRST 5 ROWS ONLY`
       ),
-      
-      // Department sales (updated)
       executeQuery(`
         SELECT 
           pc.CategoryName AS Department,
@@ -36,3 +38,5 @@ router.get('/reports', async (req, res) => {
     });
   }
 });
+
+module.exports = router; // Don't forget to export
