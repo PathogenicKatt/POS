@@ -3,22 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mooi Mart</title>
+    <title>Mooi Mart POS</title>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Mooi Mart POS System</h1>
+            <div class="store-header">
+                <h1>Mooi Mart</h1>
+                <p>Potchefstroom, South Africa</p>
+            </div>
             <div class="sale-info">
                 <div id="current-date"></div>
+                <div id="current-user">Cashier: <span>Employee Name</span></div>
             </div>
         </header>
         
         <div class="main-content">
             <section class="product-section">
                 <h2>Products</h2>
+                <div class="category-tabs">
+                    <button class="category-tab active" data-category="all">All</button>
+                    <button class="category-tab" data-category="1">General</button>
+                    <button class="category-tab" data-category="2">Butchery</button>
+                    <button class="category-tab" data-category="3">Deli</button>
+                    <button class="category-tab" data-category="4">Bakery</button>
+                </div>
+                <div id="product-grid" class="product-grid">
+                    <!-- Products will load here -->
+                </div>
+            </section>
+            
+            <section class="cart-section">
+                <h2>Current Sale</h2>
+                <div class="cart-container">
+                    <table id="cart-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Price</th>
+                                <th>Qty</th>
+                                <th>Total</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Cart items will appear here -->
+                        </tbody>
+                    </table>
+                    
+                    <div class="cart-total">
+                        <div class="total-line">
+                            <span>Subtotal:</span>
+                            <span id="subtotal">R 0.00</span>
+                        </div>
+                        <div class="total-line">
+                            <span>VAT (15%):</span>
+                            <span id="vat">R 0.00</span>
+                        </div>
+                        <div class="total-line grand-total">
+                            <span>Total:</span>
+                            <span id="grand-total">R 0.00</span>
+                        </div>
+                    </div>
+                    
+                    <div class="payment-methods">
+                        <button class="payment-btn" data-method="cash">Cash</button>
+                        <button class="payment-btn" data-method="card">Card</button>
+                        <button class="payment-btn" data-method="eft">EFT</button>
+                    </div>
+                    
+                    <div class="cart-actions">
+                        <button id="clear-cart" class="btn-secondary">Clear Cart</button>
+                        <button id="checkout-btn" class="btn-primary">Complete Sale (F1)</button>
+                    </div>
+                </div>
+            </section>
         </div>
         
+        <div class="demo-notice">
+            <p>NOTE: This is a frontend demo for Mooi Mart. Backend integration with Oracle will be shown in the video demonstration.</p>
+        </div>
     </div>
+
+    <script src="js/app.js"></script>
 </body>
 </html>
