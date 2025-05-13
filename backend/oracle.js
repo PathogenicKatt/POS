@@ -1,7 +1,6 @@
 const oracledb = require('oracledb');
 require('dotenv').config();
 
-// Create a connection pool
 let pool;
 
 async function init() {
@@ -13,7 +12,7 @@ async function init() {
       poolMin: 1,
       poolMax: 5,
       poolIncrement: 1,
-      poolAlias: 'default' // Explicitly set pool alias
+      poolAlias: 'default'
     });
     console.log('Oracle connection pool created');
   } catch (err) {
@@ -25,7 +24,7 @@ async function init() {
 async function executeQuery(sql, binds = []) {
   let connection;
   try {
-    connection = await oracledb.getConnection('default'); // Use the named pool
+    connection = await pool.getConnection();
     const result = await connection.execute(sql, binds, {
       outFormat: oracledb.OUT_FORMAT_OBJECT
     });
