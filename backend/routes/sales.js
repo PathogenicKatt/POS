@@ -1,52 +1,95 @@
+// routes/sales.js (include with your GET /reports logic)
 const express = require('express');
-const { executeQuery } = require('../oracle');
+const { pool } = require('../oracle');
+const oracledb = require('oracledb');
+
 const router = express.Router();
 
-router.get('/reports', async (req, res) => {
+router.post('/', async (req, res) => {
+  const { items, subtotal, vat, total, timestamp, paymentMethod, employeeId } = req.body;
+
+  if (!items || items.length === 0) {
+    return res.status(400).json({ success: false, error: 'No items in sale' });
+  }
+
+  let connection;
   try {
-    const [topProducts, deptSales, dailySummary] = await Promise.all([
-      executeQuery(`
-        SELECT 
-          p.ProductName AS PRODUCTNAME, 
-          SUM(sd.QuantitySold) AS TOTAL,
-          AVG(sd.PriceAtSale) AS PRICE
-        FROM SaleDetail sd
-        JOIN Product p ON sd.ProductID = p.ProductID
-        GROUP BY p.ProductName 
-        ORDER BY TOTAL DESC 
-        FETCH FIRST 5 ROWS ONLY`
-      ),
-      executeQuery(`
-        SELECT 
-          pc.CategoryName AS DEPARTMENT,
-          SUM(sd.QuantitySold * sd.PriceAtSale) AS REVENUE
-        FROM SaleDetail sd
-        JOIN Product p ON sd.ProductID = p.ProductID
-        JOIN ProductCategory pc ON p.CategoryID = pc.CategoryID
-        GROUP BY pc.CategoryName`
-      ),
-      executeQuery(`
-        SELECT 
-          NVL(COUNT(DISTINCT s.SaleID), 0) AS TRANSACTIONS,
-          NVL(SUM(s.TotalAmount), 0) AS TOTAL_SALES
-        FROM Sale s
-        WHERE TRUNC(s.SaleDate) = TRUNC(SYSDATE)`
-      )
-    ]);
-    
-    res.json({ 
+    connection = await pool.getConnection();
+
+    // 1. Generate new SaleID
+    const saleIdResult = await connection.execute(
+      `SELECT SaleID_value.NEXTVAL AS saleId FROM dual`
+    );
+    const saleId = saleIdResult.rows[0].SALEID;
+
+    // 2. Insert into SALE
+    await connection.execute(
+      `INSERT INTO Sale (SaleID, SaleDate, TotalAmount)
+       VALUES (:saleId, TO_DATE(:timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.FF3"Z"'), :total)`,
+      { saleId, timestamp, total }
+    );
+
+    // 3. Insert into SALEDETAIL
+    let lineNumber = 1;
+    for (const item of items) {
+      await connection.execute(
+        `INSERT INTO SaleDetail (SaleID, ProductID, SaleLineNumber, QuantitySold, PriceAtSale)
+         VALUES (:saleId, :productId, :lineNumber, :quantity, :price)`,
+        {
+          saleId,
+          productId: item.id,
+          lineNumber,
+          quantity: item.quantity,
+          price: item.price
+        }
+      );
+
+      // Update product stock
+      await connection.execute(
+        `UPDATE Product SET Quantity = Quantity - :qty WHERE ProductID = :productId`,
+        { qty: item.quantity, productId: item.id }
+      );
+
+      lineNumber++;
+    }
+
+    // 4. Insert into PAYMENT
+    const paymentIdResult = await connection.execute(
+      `SELECT PaymentID_value.NEXTVAL AS paymentId FROM dual`
+    );
+    const paymentId = paymentIdResult.rows[0].PAYMENTID;
+
+    await connection.execute(
+      `INSERT INTO Payment (PaymentID, SaleID, PaymentMethod, AmountPaid)
+       VALUES (:paymentId, :saleId, :method, :amount)`,
+      { paymentId, saleId, method: paymentMethod, amount: total }
+    );
+
+    await connection.commit();
+
+    // Return receipt
+    res.json({
       success: true,
-      topProducts,
-      deptSales,
-      dailySummary: dailySummary[0]
+      receipt: {
+        vatNumber: "1234567890",
+        date: new Date().toLocaleString(),
+        cashier: "Employee", // You can look up the actual name later if needed
+        paymentMethod,
+        items,
+        subtotal,
+        vat,
+        total
+      }
     });
+
   } catch (err) {
-    console.error('Report error:', err);
-    res.status(500).json({ 
-      success: false,
-      error: err.message 
-    });
+    if (connection) await connection.rollback();
+    console.error('Error inserting sale:', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  } finally {
+    if (connection) await connection.close();
   }
 });
 
 module.exports = router;
+
