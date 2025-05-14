@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Load products
     const products = await API.getProducts();
+    console.log("PRODUCTS:", products);
     renderProducts(products);
 
     
