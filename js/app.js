@@ -215,6 +215,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
         
         const result = await API.createSale(saleData);
+        console.log('Sending saleData:', saleData);
+        console.log('CreateSale result:', result);
+
         if (result.success) {
             showMooiMartReceipt(result.receipt);
             cart = [];
