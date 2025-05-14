@@ -1,4 +1,4 @@
-const API_BASE = 'http:172.24.32.1:3000'; // update with your Render URL
+const API_BASE = 'http://172.24.32.1:3000'; // update with your Render URL
 
 const API = {
   getReports: async () => {
