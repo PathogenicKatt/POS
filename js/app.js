@@ -32,8 +32,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderProducts(products);
 
     
-    const cashier = await API.getCurrentCashier();
-    cashierNameEl.textContent = `${cashier.fullName} (${cashier.RegisterLocation})`;
+    //const cashier = await API.getCurrentCashier();
+    //cashierNameEl.textContent = `${cashier.fullName} (${cashier.RegisterLocation})`;
+    document.querySelector('#current-user span').textContent = `Cashier X (Deli)`;
+
     
     // Category tab click handler
     categoryTabs.forEach(tab => {
