@@ -61,20 +61,22 @@ const API = {
   },
 
   createSale: async (saleData) => {
-    try {
-      const response = await fetch(`${API_BASE}/api/sales`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(saleData)
-      });
+  try {
+    const response = await fetch(`${API_BASE}/api/sales`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(saleData)
+    });
 
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error('Create Sale Error:', error);
-      return { success: false };
-    }
-  },
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Sale failed');
+    return data;
+  } catch (err) {
+    console.error('Create Sale Error:', err);
+    return { success: false };
+  }
+},
+
 
   getCurrentCashier: async () => {
   try {
@@ -88,6 +90,7 @@ const API = {
     return null;
   }
 }
+  
 
 };
 
