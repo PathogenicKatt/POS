@@ -66,21 +66,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Render product grid
     function renderProducts(productsToRender) {
-        productGrid.innerHTML = productsToRender.map(product => `
-            <div class="product-card" data-id="${product.id}">
-                <div class="no-image">${product.name.charAt(0)}</div>
-                <h3>${product.name}</h3>
-                <div class="price">R ${product.price.toFixed(2)}</div>
-                ${product.weight ? `<small>${product.weight}</small>` : ''}
-                <button class="add-to-cart">Add to Cart</button>
-            </div>
-        `).join('');
-        
-        // Add event listeners
-        document.querySelectorAll('.add-to-cart').forEach(btn => {
-            btn.addEventListener('click', addToCart);
-        });
-    }
+  if (!Array.isArray(productsToRender) || productsToRender.length === 0) {
+    productGrid.innerHTML = `<p style="color:red;">No products available</p>`;
+    return;
+  }
+
+  productGrid.innerHTML = productsToRender.map(product => `
+    <div class="product-card" data-id="${product.id}">
+      <div class="no-image">${product.name?.charAt(0) || '?'}</div>
+      <h3>${product.name || 'Unknown'}</h3>
+      <div class="price">R ${Number(product.price).toFixed(2)}</div>
+      ${product.weight ? `<small>${product.weight}</small>` : ''}
+      <button class="add-to-cart">Add to Cart</button>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.add-to-cart').forEach(btn => {
+    btn.addEventListener('click', addToCart);
+  });
+}
+
 
     
     // Add to cart function
