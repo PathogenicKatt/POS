@@ -77,15 +77,18 @@ const API = {
   },
 
   getCurrentCashier: async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/cashiers/current`);
-      const data = await response.json();
-      return data.success ? data.cashier : null;
-    } catch (error) {
-      console.error('Cashier API Error:', error);
-      return null;
-    }
+  try {
+    const response = await fetch(`${API_BASE}/api/cashiers/current`);
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error);
+    return data.cashier;
+  } catch (err) {
+    console.error('Cashier API Error:', err);
+    return null;
   }
+}
+
 };
 
 // Make available globally
