@@ -1,46 +1,38 @@
-// routes/sales.js
 const express = require('express');
-const { pool, executeQuery } = require('../oracle');
-const oracledb = require('oracledb');
 const router = express.Router();
+const { executeQuery } = require('../oracle');
 
-router.get('/products', async (req, res) => {
-  try {
-    const products = await executeQuery(`
-      SELECT ProductID AS id, ProductName AS name, Price, Quantity, CategoryID AS category
-      FROM Product
-    `);
-    res.json({ success: true, products });
-  } catch (err) {
-    console.error('Product fetch error:', err);
-    res.status(500).json({ success: false, error: 'Failed to load products' });
-  }
-});
-
+// 🔍 GET reports for top products, revenue per department, and daily summary
 router.get('/reports', async (req, res) => {
   try {
     const [topProducts, deptSales, dailySummary] = await Promise.all([
       executeQuery(`
-        SELECT p.ProductName AS PRODUCTNAME, 
-               SUM(sd.QuantitySold) AS TOTAL,
-               AVG(sd.PriceAtSale) AS PRICE
+        SELECT 
+          p.ProductName AS PRODUCTNAME, 
+          SUM(sd.QuantitySold) AS TOTAL,
+          AVG(sd.PriceAtSale) AS PRICE
         FROM SaleDetail sd
         JOIN Product p ON sd.ProductID = p.ProductID
         GROUP BY p.ProductName 
         ORDER BY TOTAL DESC 
-        FETCH FIRST 5 ROWS ONLY`),
+        FETCH FIRST 5 ROWS ONLY
+      `),
       executeQuery(`
-        SELECT pc.CategoryName AS DEPARTMENT,
-               SUM(sd.QuantitySold * sd.PriceAtSale) AS REVENUE
+        SELECT 
+          pc.CategoryName AS DEPARTMENT,
+          SUM(sd.QuantitySold * sd.PriceAtSale) AS REVENUE
         FROM SaleDetail sd
         JOIN Product p ON sd.ProductID = p.ProductID
         JOIN ProductCategory pc ON p.CategoryID = pc.CategoryID
-        GROUP BY pc.CategoryName`),
+        GROUP BY pc.CategoryName
+      `),
       executeQuery(`
-        SELECT NVL(COUNT(DISTINCT s.SaleID), 0) AS TRANSACTIONS,
-               NVL(SUM(s.TotalAmount), 0) AS TOTAL_SALES
+        SELECT 
+          NVL(COUNT(DISTINCT s.SaleID), 0) AS TRANSACTIONS,
+          NVL(SUM(s.TotalAmount), 0) AS TOTAL_SALES
         FROM Sale s
-        WHERE TRUNC(s.SaleDate) = TRUNC(SYSDATE)`)
+        WHERE TRUNC(s.SaleDate) = TRUNC(SYSDATE)
+      `)
     ]);
 
     res.json({
@@ -55,81 +47,7 @@ router.get('/reports', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
-  const { items, subtotal, vat, total, timestamp, paymentMethod, employeeId } = req.body;
-
-  if (!items || items.length === 0) {
-    return res.status(400).json({ success: false, error: 'No items in sale' });
-  }
-
-  let connection;
-  try {
-    connection = await pool.getConnection();
-
-    const saleIdResult = await connection.execute(`SELECT SaleID_value.NEXTVAL AS saleId FROM dual`);
-    const saleId = saleIdResult.rows[0].SALEID;
-
-    await connection.execute(
-      `INSERT INTO Sale (SaleID, SaleDate, TotalAmount)
-       VALUES (:saleId, TO_DATE(:timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.FF3"Z"'), :total)`,
-      { saleId, timestamp, total }
-    );
-
-    let lineNumber = 1;
-    for (const item of items) {
-      await connection.execute(
-        `INSERT INTO SaleDetail (SaleID, ProductID, SaleLineNumber, QuantitySold, PriceAtSale)
-         VALUES (:saleId, :productId, :lineNumber, :quantity, :price)`,
-        {
-          saleId,
-          productId: item.id,
-          lineNumber,
-          quantity: item.quantity,
-          price: item.price
-        }
-      );
-
-      await connection.execute(
-        `UPDATE Product SET Quantity = Quantity - :qty WHERE ProductID = :productId`,
-        { qty: item.quantity, productId: item.id }
-      );
-
-      lineNumber++;
-    }
-
-    const paymentIdResult = await connection.execute(`SELECT PaymentID_value.NEXTVAL AS paymentId FROM dual`);
-    const paymentId = paymentIdResult.rows[0].PAYMENTID;
-
-    await connection.execute(
-      `INSERT INTO Payment (PaymentID, SaleID, PaymentMethod, AmountPaid)
-       VALUES (:paymentId, :saleId, :method, :amount)`,
-      { paymentId, saleId, method: paymentMethod, amount: total }
-    );
-
-    await connection.commit();
-
-    res.json({
-      success: true,
-      receipt: {
-        vatNumber: "1234567890",
-        date: new Date().toLocaleString(),
-        cashier: "Employee", // You can personalize this later
-        paymentMethod,
-        items,
-        subtotal,
-        vat,
-        total
-      }
-    });
-
-  } catch (err) {
-    if (connection) await connection.rollback();
-    console.error('Error recording sale:', err);
-    res.status(500).json({ success: false, error: 'Sale failed' });
-  } finally {
-    if (connection) await connection.close();
-  }
-});
+// 🛍️ GET all products for the POS product grid
 router.get('/products', async (req, res) => {
   try {
     const rows = await executeQuery(`
@@ -148,7 +66,79 @@ router.get('/products', async (req, res) => {
   }
 });
 
+// 💳 POST a new sale
+router.post('/', async (req, res) => {
+  const connection = await require('oracledb').getConnection();
+
+  try {
+    const { items, subtotal, vat, total, timestamp, paymentMethod, employeeId } = req.body;
+
+    await connection.execute('BEGIN', [], { autoCommit: false });
+
+    // Get new SaleID
+    const saleIdResult = await connection.execute(
+      `SELECT NVL(MAX(SaleID), 0) + 1 AS ID FROM Sale`
+    );
+    const saleId = saleIdResult.rows[0].ID;
+
+    // Insert into Sale table
+    await connection.execute(
+      `INSERT INTO Sale (SaleID, SaleDate, TotalAmount) VALUES (:id, TO_DATE(:date, 'YYYY-MM-DD"T"HH24:MI:SS.FF3"Z"'), :amount)`,
+      [saleId, timestamp, total]
+    );
+
+    // Insert items into SaleDetail
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      await connection.execute(
+        `INSERT INTO SaleDetail (SaleID, ProductID, SaleLineNumber, QuantitySold, PriceAtSale) 
+         VALUES (:saleId, :productId, :lineNumber, :qty, :price)`,
+        {
+          saleId,
+          productId: item.id,
+          lineNumber: i + 1,
+          qty: item.quantity,
+          price: item.price
+        }
+      );
+
+      // Reduce stock
+      await connection.execute(
+        `UPDATE Product SET Quantity = Quantity - :qty WHERE ProductID = :id`,
+        { qty: item.quantity, id: item.id }
+      );
+    }
+
+    // Add to Payment table (optional)
+    await connection.execute(
+      `INSERT INTO Payment (PaymentID, SaleID, PaymentMethod, AmountPaid)
+       VALUES (PaymentID_value.NEXTVAL, :saleId, :method, :amount)`,
+      { saleId, method: paymentMethod, amount: total }
+    );
+
+    await connection.commit();
+
+    res.json({
+      success: true,
+      receipt: {
+        items,
+        subtotal,
+        vat,
+        total,
+        vatNumber: '4534567879',
+        paymentMethod,
+        cashier: 'Cashier X',
+        date: new Date(timestamp).toLocaleString()
+      }
+    });
+
+  } catch (err) {
+    console.error('Sale error:', err);
+    await connection.rollback();
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    await connection.close();
+  }
+});
 
 module.exports = router;
-
-
