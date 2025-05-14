@@ -1,4 +1,4 @@
-const API_BASE = 'https://mooi-mart-api.onrender.com/api/sales/products'; // update with your Render URL
+const API_BASE = 'http://localhost:3000'; // update with your Render URL
 
 const API = {
   getReports: async () => {
