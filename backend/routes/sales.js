@@ -2,94 +2,143 @@ const express = require('express');
 const router = express.Router();
 const { executeQuery } = require('../oracle');
 
-// Get product list
+// 🔍 GET reports for top products, revenue per department, and daily summary
+router.get('/reports', async (req, res) => {
+  try {
+    const [topProducts, deptSales, dailySummary] = await Promise.all([
+      executeQuery(`
+        SELECT 
+          p.ProductName AS PRODUCTNAME, 
+          SUM(sd.QuantitySold) AS TOTAL,
+          AVG(sd.PriceAtSale) AS PRICE
+        FROM SaleDetail sd
+        JOIN Product p ON sd.ProductID = p.ProductID
+        GROUP BY p.ProductName 
+        ORDER BY TOTAL DESC 
+        FETCH FIRST 5 ROWS ONLY
+      `),
+      executeQuery(`
+        SELECT 
+          pc.CategoryName AS DEPARTMENT,
+          SUM(sd.QuantitySold * sd.PriceAtSale) AS REVENUE
+        FROM SaleDetail sd
+        JOIN Product p ON sd.ProductID = p.ProductID
+        JOIN ProductCategory pc ON p.CategoryID = pc.CategoryID
+        GROUP BY pc.CategoryName
+      `),
+      executeQuery(`
+        SELECT 
+          NVL(COUNT(DISTINCT s.SaleID), 0) AS TRANSACTIONS,
+          NVL(SUM(s.TotalAmount), 0) AS TOTAL_SALES
+        FROM Sale s
+        WHERE TRUNC(s.SaleDate) = TRUNC(SYSDATE)
+      `)
+    ]);
+
+    res.json({
+      success: true,
+      topProducts,
+      deptSales,
+      dailySummary: dailySummary[0]
+    });
+  } catch (err) {
+    console.error('Report error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 🛍️ GET all products for the POS product grid
 router.get('/products', async (req, res) => {
   try {
     const rows = await executeQuery(`
-      SELECT ProductID AS ID, ProductName AS NAME, PRICE, CategoryID AS CATEGORYID
+      SELECT 
+        ProductID AS ID,
+        ProductName AS NAME,
+        Price AS PRICE,
+        Quantity AS QUANTITY,
+        CategoryID AS CATEGORYID
       FROM Product
     `);
     res.json({ success: true, products: rows });
   } catch (err) {
-    console.error('Product Fetch Error:', err);
+    console.error('Products error:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Create sale
+// 💳 POST a new sale
 router.post('/', async (req, res) => {
-  const { items, subtotal, vat, total, paymentMethod, employeeId } = req.body;
-
-  const saleIdQuery = `SELECT NVL(MAX(SaleID), 0) + 1 AS NEXT_ID FROM Sale`;
-  let connection;
+  const connection = await require('oracledb').getConnection();
 
   try {
-    const result = await executeQuery(saleIdQuery);
-    const newSaleID = result[0].NEXT_ID;
+    const { items, subtotal, vat, total, timestamp, paymentMethod, employeeId } = req.body;
 
-    await executeQuery(
-      `INSERT INTO Sale (SaleID, SaleDate, TotalAmount) VALUES (:id, SYSDATE, :total)`,
-      [newSaleID, total]
+    await connection.execute('BEGIN', [], { autoCommit: false });
+
+    // Get new SaleID
+    const saleIdResult = await connection.execute(
+      `SELECT NVL(MAX(SaleID), 0) + 1 AS ID FROM Sale`
+    );
+    const saleId = saleIdResult.rows[0].ID;
+
+    // Insert into Sale table
+    await connection.execute(
+      `INSERT INTO Sale (SaleID, SaleDate, TotalAmount) VALUES (:id, TO_DATE(:date, 'YYYY-MM-DD"T"HH24:MI:SS.FF3"Z"'), :amount)`,
+      [saleId, timestamp, total]
     );
 
+    // Insert items into SaleDetail
     for (let i = 0; i < items.length; i++) {
-      await executeQuery(
-        `INSERT INTO SaleDetail (SaleID, ProductID, SaleLineNumber, QuantitySold, PriceAtSale)
-         VALUES (:saleId, :prodId, :line, :qty, :price)`,
-        [newSaleID, items[i].ID, i + 1, items[i].quantity, items[i].PRICE]
+      const item = items[i];
+      await connection.execute(
+        `INSERT INTO SaleDetail (SaleID, ProductID, SaleLineNumber, QuantitySold, PriceAtSale) 
+         VALUES (:saleId, :productId, :lineNumber, :qty, :price)`,
+        {
+          saleId,
+          productId: item.id,
+          lineNumber: i + 1,
+          qty: item.quantity,
+          price: item.price
+        }
+      );
+
+      // Reduce stock
+      await connection.execute(
+        `UPDATE Product SET Quantity = Quantity - :qty WHERE ProductID = :id`,
+        { qty: item.quantity, id: item.id }
       );
     }
 
-    await executeQuery(
+    // Add to Payment table (optional)
+    await connection.execute(
       `INSERT INTO Payment (PaymentID, SaleID, PaymentMethod, AmountPaid)
        VALUES (PaymentID_value.NEXTVAL, :saleId, :method, :amount)`,
-      [newSaleID, paymentMethod, total]
+      { saleId, method: paymentMethod, amount: total }
     );
+
+    await connection.commit();
 
     res.json({
       success: true,
       receipt: {
-        cashier: employeeId,
-        items: items.map(i => ({ name: i.NAME, quantity: i.quantity, price: i.PRICE })),
+        items,
         subtotal,
         vat,
         total,
-        paymentMethod
+        vatNumber: '4534567879',
+        paymentMethod,
+        cashier: 'Cashier X',
+        date: new Date(timestamp).toLocaleString()
       }
     });
+
   } catch (err) {
-    console.error('Create Sale Error:', err);
+    console.error('Sale error:', err);
+    await connection.rollback();
     res.status(500).json({ success: false, error: err.message });
+  } finally {
+    await connection.close();
   }
 });
 
 module.exports = router;
-
-// ============================
-// 📦 routes/cashiers.js
-// ============================
-const expressCashier = require('express');
-const cashierRouter = expressCashier.Router();
-const { executeQuery: execCashier } = require('../oracle');
-
-cashierRouter.get('/current', async (req, res) => {
-  try {
-    const result = await execCashier(`
-      SELECT c.EmployeeID, e.FirstName || ' ' || e.LastName AS NAME, c.registerLocation AS LOCATION
-      FROM Cashier c JOIN Employee e ON c.EmployeeID = e.EmployeeID
-      FETCH FIRST 1 ROWS ONLY
-    `);
-
-    if (result.length === 0) {
-      return res.json({ success: false, error: 'No cashier found' });
-    }
-
-    res.json({ success: true, cashier: result[0] });
-  } catch (err) {
-    console.error('Cashier fetch error:', err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-module.exports = cashierRouter;
-
