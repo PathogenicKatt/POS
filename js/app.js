@@ -33,8 +33,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     
     const cashier = await API.getCurrentCashier();
-    cashierNameEl.textContent = `${cashier.fullName} (${cashier.RegisterLocation})`;
-    //document.querySelector('#current-user span').textContent = `Cashier X (Deli)`;
+    if (cashier) {
+  document.querySelector('#current-user span').textContent = `${cashier.NAME} (${cashier.LOCATION})`;
+} else {
+  document.querySelector('#current-user span').textContent = `Cashier: Amanda`;
+}
 
     
     // Category tab click handler
