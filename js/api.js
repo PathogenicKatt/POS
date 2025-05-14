@@ -14,22 +14,23 @@ const API = {
     }
   },
 
-  getReports: async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/sales/reports`);
-      if (!response.ok) throw new Error(`Server returned ${response.status}`);
-      const data = await response.json();
-      if (!data.success) throw new Error(data.error || 'Invalid report data');
-      return {
-        topProducts: data.topProducts || [],
-        deptSales: data.deptSales || [],
-        dailySummary: data.dailySummary || {}
-      };
-    } catch (error) {
-      console.error('Report API Error:', error);
-      return { topProducts: [], deptSales: [], dailySummary: {} };
+  getProducts: async () => {
+  try {
+    const response = await fetch(`${API_BASE}/api/sales/products`);
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+    const data = await response.json();
+    
+    if (!data.success || !Array.isArray(data.products)) {
+      throw new Error(data.error || 'Invalid product data');
     }
-  },
+
+    return data.products;
+  } catch (error) {
+    console.error('Product API Error:', error);
+    return [];
+  }
+},
+
 
   getCurrentCashier: async () => {
     try {
