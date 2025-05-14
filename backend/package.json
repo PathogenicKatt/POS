@@ -1,4 +1,11 @@
 {
+  "name": "mooi-mart-backend",
+  "version": "1.0.0",
+  "description": "Node.js backend for Mooi Mart POS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
@@ -6,3 +13,4 @@
     "oracledb": "^6.8.0"
   }
 }
+
