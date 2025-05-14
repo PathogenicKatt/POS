@@ -130,6 +130,24 @@ router.post('/', async (req, res) => {
     if (connection) await connection.close();
   }
 });
+router.get('/products', async (req, res) => {
+  try {
+    const rows = await executeQuery(`
+      SELECT 
+        ProductID AS ID,
+        ProductName AS NAME,
+        Price AS PRICE,
+        Quantity AS QUANTITY,
+        CategoryID AS CATEGORYID
+      FROM Product
+    `);
+    res.json({ success: true, products: rows });
+  } catch (err) {
+    console.error('Products error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 module.exports = router;
 
