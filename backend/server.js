@@ -1,21 +1,22 @@
+
 const express = require('express');
 const cors = require('cors');
 const { init } = require('./oracle');
 const salesRouter = require('./routes/sales');
-const cashierRouter = require('./routes/cashiers'); // Make sure you have this file too
+const cashierRouter = require('./routes/cashiers');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors()); // ✅ Allow frontend (like GitHub Pages) to access backend
-app.use(express.json()); // ✅ Parse incoming JSON
+app.use(cors());
+app.use(express.json());
 
-// API routes
+// Routes
 app.use('/api/sales', salesRouter);
-app.use('/api/cashiers', cashierRouter); // For displaying current cashier
+app.use('/api/cashiers', cashierRouter);
 
-// Health check endpoint
+// Health Check
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'active',
@@ -24,14 +25,13 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Start the app after DB init
-init()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Mooi Mart POS backend running on http://localhost:${PORT}`);
-    });
-  })
-  .catch(err => {
-    console.error('Failed to start server:', err);
-    process.exit(1);
+// Initialize Oracle Pool and Start Server
+init().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Mooi Mart POS backend running on http://localhost:${PORT}`);
   });
+}).catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});
+
